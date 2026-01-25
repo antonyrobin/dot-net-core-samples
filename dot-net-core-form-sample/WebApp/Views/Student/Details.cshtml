@@ -1,0 +1,21 @@
+﻿@model WebApp.Models.Student
+
+<h2>View Student</h2>
+
+    <dl>
+        <dt></dt>
+		<dd><input type="hidden" asp-for="Id" /></dd>
+        <dt>Name</dt>
+        <dd><input asp-for="Name" class="form-control" /></dd>
+
+        <dt>Course</dt>
+        <dd><input asp-for="Course" class="form-control" /></dd>
+
+        <dt>Age</dt>
+        <dd><input asp-for="Age" class="form-control" /></dd>
+
+        <dt></dt>
+        <dd><button type="submit">Save</button></dd>
+    </dl>
+
+<a asp-action="Index">Go Back</a>

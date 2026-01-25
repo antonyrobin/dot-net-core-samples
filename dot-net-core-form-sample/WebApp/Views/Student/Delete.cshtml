@@ -1,0 +1,11 @@
+﻿@model WebApp.Models.Student
+
+<h2>Delete Student</h2>
+
+<p>Are you sure you want to delete <b>@Model.Name</b>?</p>
+
+<form asp-action="Delete">
+    <input type="hidden" asp-for="Id" />
+    <button type="submit">Yes</button>
+    <a asp-action="Index">Cancel</a>
+</form>

@@ -1,0 +1,20 @@
+﻿@model WebApp.Models.Student
+
+<h2>Create Student</h2>
+
+<form asp-action="Create" method="post" class="form">
+    <dl>
+        <dt>Name</dt>
+        <dd><input asp-for="Name" class="form-control" /></dd>
+
+        <dt>Course</dt>
+        <dd><input asp-for="Course" class="form-control" /></dd>
+
+        <dt>Age</dt>
+        <dd><input asp-for="Age" class="form-control" /></dd>
+
+        <dt></dt>
+        <dd><button type="submit">Save</button></dd>
+    </dl>
+</form>
+<a asp-action="Index">Go Back</a>
