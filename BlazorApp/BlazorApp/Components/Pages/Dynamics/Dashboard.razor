@@ -1,0 +1,108 @@
+﻿<h3>Dashboard</h3>
+
+@code {
+
+}
+@page "/dynamics/dashboard"
+@using BlazorApp.Models
+@using BlazorApp.Services.Interfaces
+@inject IFormSubmissionService SubmissionService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@attribute [StreamRendering]
+
+<PageTitle>Dynamics - Candidates</PageTitle>
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-7xl mx-auto px-4">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900">Candidates</h1>
+            <a href="/dynamics/form"
+                   class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg transition-all flex items-center gap-2">
+                <span class="text-xl">+</span> New Registration
+            </a>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Message))
+        {
+            <div class="bg-green-100 border border-green-400 text-green-700 px-6 py-4 rounded-2xl mb-6 flex items-center gap-3">
+                @Message
+            </div>
+        }
+
+        <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
+            <table class="w-full">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="px-6 py-5 text-left font-medium text-gray-600">Profile</th>
+                        <th class="px-6 py-5 text-left font-medium text-gray-600">Full Name</th>
+                        <th class="px-6 py-5 text-left font-medium text-gray-600">Email</th>
+                        <th class="px-6 py-5 text-left font-medium text-gray-600">Experience</th>
+                        <th class="px-6 py-5 text-right font-medium text-gray-600">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y">
+                    @if (Submissions == null)
+                    {
+                        <tr><td colspan="5" class="text-center py-12 text-gray-400"><p><em>Loading...</em></p></td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var sub in Submissions)
+                        {
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-5">
+                                    @if (sub.FileData.ContainsKey("profilePic"))
+                                    {
+                                        <img src="/files/@sub.FileData["profilePic"]" class="w-12 h-12 rounded-2xl object-cover ring-2 ring-gray-200" />
+                                    }
+                                    else
+                                    {
+
+                                        <span class="text-gray-400">—</span>
+                                    }
+                                </td>
+                                <td class="px-6 py-5 font-medium">@(sub.TextData.GetValueOrDefault("fullName") ?? "")</td>
+                                <td class="px-6 py-5 text-gray-600">@(sub.TextData.GetValueOrDefault("emailAddress") ?? "")</td>
+                                <td class="px-6 py-5 text-gray-600">@(sub.TextData.GetValueOrDefault("experience") ?? "") years</td>
+                                <td class="px-6 py-5 text-right">
+                                    <a href="/dynamics/form/@sub.Id" class="text-blue-600 hover:text-blue-700 font-medium mr-6">Edit</a>
+                                    <a href="/dynamics/details/@sub.Id" class="text-emerald-600 hover:text-emerald-700 font-medium mr-6">View</a>
+                                    <button @onclick="() => DeleteAsync(sub.Id)"
+                                    class="text-red-600 hover:text-red-700 font-medium">
+                                        Delete
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                        @if (!Submissions.Any())
+                        {
+                            <tr><td colspan="5" class="text-center py-12 text-gray-400">No records yet</td></tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<FormSubmission> Submissions;
+    private string? Message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Submissions = await SubmissionService.GetAllAsync();
+    }
+
+    private async Task DeleteAsync(string id)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Delete this record permanently?"))
+        {
+            await SubmissionService.DeleteAsync(id);
+            Submissions = await SubmissionService.GetAllAsync();
+            Message = "Record deleted successfully";
+            StateHasChanged();
+        }
+    }
+}
