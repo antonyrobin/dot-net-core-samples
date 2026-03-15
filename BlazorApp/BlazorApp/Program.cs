@@ -32,7 +32,13 @@ if (string.IsNullOrWhiteSpace(cosmosConnectionString))
 }
 
 builder.Services.AddSingleton<CosmosClient>(sp =>
-    new CosmosClient(cosmosConnectionString));
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var connString = config.GetValue<string>("Cosmos:ConnectionString")
+        ?? throw new InvalidOperationException("Cosmos connection string missing");
+
+    return new CosmosClient(connString);
+});
 
 // Register the base repository
 builder.Services.AddSingleton<IFormSubmissionRepository>(sp =>
@@ -61,7 +67,7 @@ using (var scope = app.Services.CreateScope())
         // Also eagerly initialize the repository to populate the partition key path
         // This ensures the first query doesn't pay the overhead
         var repository = scope.ServiceProvider.GetRequiredService<IFormSubmissionRepository>();
-        _ = repository.GetPagedAsync(null, 1, null).GetAwaiter().GetResult();
+        _ = repository.GetPagedAsync(null, 5, null).GetAwaiter().GetResult();
     }
     catch
     {
