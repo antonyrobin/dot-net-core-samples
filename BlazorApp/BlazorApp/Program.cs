@@ -12,11 +12,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.Configure<AzureBlobOptions>(
+    builder.Configuration.GetSection("AzureBlobStorage"));
+
 builder.Services.AddRazorPages();
 builder.Services.AddMemoryCache();  // Add memory cache for reducing Cosmos hits
 builder.Services.AddSingleton<IFormDefinitionService, FormDefinitionService>();
 builder.Services.AddSingleton<IFormValidationService, FormValidationService>();
-builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+builder.Services.AddScoped<IFileStorageService, AzureBlobStorageService>();
 // These two are better as Scoped (per-request)
 builder.Services.AddScoped<IFormSubmissionService, FormSubmissionService>();
 

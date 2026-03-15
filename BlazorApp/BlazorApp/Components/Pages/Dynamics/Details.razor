@@ -2,6 +2,7 @@
 @using BlazorApp.Services.Interfaces
 @inject IFormSubmissionService SubmissionService
 @inject IFormDefinitionService FormDefService
+@inject IFileStorageService FileStorageService
 
 <PageTitle>Candidate Details</PageTitle>
 
@@ -24,7 +25,7 @@
                         if (firstImage != null)
                         {
                             <div class="text-center mb-4">
-                                <img src="/files/@Submission.FileData[firstImage.Name]" class="w-28 h-28 rounded-full object-cover mx-auto border-2 border-gray-100" />
+                                <img src="@FileStorageService.GetBlobUrl(Submission.FileData[firstImage.Name], firstImage.Name)" class="w-28 h-28 rounded-full object-cover mx-auto border-2 border-gray-100" />
                             </div>
                         }
                     }
@@ -51,7 +52,7 @@
 
                                 <div class="flex items-center gap-3">
                                     <div class="text-sm font-medium text-gray-700">@control.Label</div>
-                                    <a href="/files/@Submission.FileData[control.Name]" target="_blank" class="text-blue-600 hover:underline text-sm">Download</a>
+                                    <a href="@FileStorageService.GetBlobUrl(Submission.FileData[control.Name], control.Name)" target="_blank" class="text-blue-600 hover:underline text-sm">Download</a>
                                 </div>
                             }
                         }
