@@ -72,6 +72,9 @@ namespace BlazorApp.Services.Implementations
         public async Task<List<FormSubmission>> GetAllAsync()
             => await _repository.GetAllAsync();
 
+        public async Task<PagedResult<FormSubmission>> GetPagedAsync(string? search, int pageSize, string? continuationToken)
+            => await _repository.GetPagedAsync(search, pageSize, continuationToken);
+
         public async Task<FormSubmission?> GetByIdAsync(string id)
             => await _repository.GetByIdAsync(id);
 

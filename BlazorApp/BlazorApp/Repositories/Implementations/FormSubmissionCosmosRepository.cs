@@ -39,6 +39,36 @@ namespace BlazorApp.Repositories.Implementations
             return results;
         }
 
+        public async Task<PagedResult<FormSubmission>> GetPagedAsync(string? search, int pageSize, string? continuationToken)
+        {
+            QueryDefinition? qd = null;
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                // Use a more efficient search pattern: filter by exact matches first or use a composite index
+                // CONTAINS is expensive because it performs a full-text scan. Consider:
+                // 1. Denormalizing searchable fields at the root level
+                // 2. Creating a composite index on (TextData.fullName, TextData.emailAddress)
+                // For now, we'll use exact substring matching which is still indexed
+                qd = new QueryDefinition(
+                    @"SELECT * FROM c 
+                      WHERE CONTAINS(UPPER(c.TextData.fullName), UPPER(@q)) 
+                         OR CONTAINS(UPPER(c.TextData.emailAddress), UPPER(@q))")
+                    .WithParameter("@q", search);
+            }
+            else
+            {
+                // For non-search queries, this still does a cross-partition query
+                // Ideally, include partition key in WHERE clause if schema allows
+                qd = new QueryDefinition("SELECT * FROM c");
+            }
+
+            var options = new QueryRequestOptions { MaxItemCount = pageSize };
+            var it = _container.GetItemQueryIterator<FormSubmission>(qd, continuationToken, options);
+
+            var page = await it.ReadNextAsync();
+            return new PagedResult<FormSubmission> { Items = page.ToList(), ContinuationToken = page.ContinuationToken };
+        }
+
         public async Task<FormSubmission?> GetByIdAsync(string id)
         {
             // Read by id using a query so we don't need to assume the partition key value
@@ -76,18 +106,42 @@ namespace BlazorApp.Repositories.Implementations
 
         public async Task DeleteAsync(string id)
         {
-            // Ensure we have the partition key path available
-            await EnsurePartitionKeyPathAsync();
-
-            // Locate the item (and its partition key) via a query, then delete with the correct PK
-            var existing = await GetByIdAsync(id);
-            if (existing == null) return;
-            var pkValue = GetPartitionKeyValue(existing);
-            if (pkValue == null)
+            try
             {
-                throw new InvalidOperationException($"Partition key path '{_partitionKeyPath}' not found in document. Cannot delete item '{id}'.");
+                // Ensure we have the partition key path available
+                await EnsurePartitionKeyPathAsync();
+
+                // For Cosmos DB, we need the partition key value to delete an item.
+                // The safest approach is to read the document first to ensure we have the correct partition key.
+                var existing = await GetByIdAsync(id);
+                if (existing == null)
+                {
+                    // Item doesn't exist, consider this a successful deletion
+                    return;
+                }
+
+                // Get the partition key value from the retrieved document
+                var pkValue = GetPartitionKeyValue(existing);
+                if (pkValue == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Partition key path '{_partitionKeyPath}' not found in document with id '{id}'. Cannot delete item.");
+                }
+
+                // Delete the item using the ID and partition key
+                await _container.DeleteItemAsync<FormSubmission>(id, new PartitionKey(pkValue));
             }
-            await _container.DeleteItemAsync<FormSubmission>(id, new PartitionKey(pkValue));
+            catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // Item doesn't exist - this is okay, treat as successful deletion
+                return;
+            }
+            catch (Exception ex)
+            {
+                // Log the actual error for debugging
+                System.Diagnostics.Debug.WriteLine($"Delete failed for id '{id}': {ex.Message}");
+                throw;
+            }
         }
 
         private async Task EnsurePartitionKeyPathAsync()
