@@ -8,21 +8,28 @@ namespace BlazorApp.Repositories.Implementations
     public class FormSubmissionCosmosRepository : IFormSubmissionRepository
     {
         private readonly Container _container;
-        private readonly string _partitionKeyPath;
+        private string? _partitionKeyPath;
         private const string DatabaseName = "dynamicsdb";
         private const string ContainerName = "dynamics_submissions";
 
         public FormSubmissionCosmosRepository(CosmosClient cosmosClient)
         {
             _container = cosmosClient.GetContainer(DatabaseName, ContainerName);
-            // Read the container properties at startup to determine the partition key path
-            // Use a synchronous wait here because constructors cannot be async; this runs once at app startup.
-            _partitionKeyPath = _container.ReadContainerAsync().GetAwaiter().GetResult().Resource.PartitionKeyPath;
+            // Don't perform any async/blocking work in the constructor. Partition key path will be
+            // populated on-demand by EnsurePartitionKeyPathAsync so the repository construction is fast
+            // and doesn't delay request handling.
+            _partitionKeyPath = null;
         }
 
         public async Task<List<FormSubmission>> GetAllAsync()
         {
-            var query = _container.GetItemQueryIterator<FormSubmission>("SELECT * FROM c");
+            // Returning all documents can be expensive. Use the iterator with a reasonable page
+            // size so the first page can be returned quickly. Consider adding pagination in the UI
+            // to avoid loading everything at once.
+            var query = _container.GetItemQueryIterator<FormSubmission>(
+                "SELECT * FROM c",
+                requestOptions: new QueryRequestOptions { MaxItemCount = 100 });
+
             var results = new List<FormSubmission>();
             while (query.HasMoreResults)
             {
@@ -47,6 +54,7 @@ namespace BlazorApp.Repositories.Implementations
 
         public async Task SaveAsync(FormSubmission submission)
         {
+            await EnsurePartitionKeyPathAsync();
             var pkValue = GetPartitionKeyValue(submission);
             if (pkValue == null)
             {
@@ -57,6 +65,7 @@ namespace BlazorApp.Repositories.Implementations
 
         public async Task UpdateAsync(FormSubmission submission)
         {
+            await EnsurePartitionKeyPathAsync();
             var pkValue = GetPartitionKeyValue(submission);
             if (pkValue == null)
             {
@@ -67,6 +76,9 @@ namespace BlazorApp.Repositories.Implementations
 
         public async Task DeleteAsync(string id)
         {
+            // Ensure we have the partition key path available
+            await EnsurePartitionKeyPathAsync();
+
             // Locate the item (and its partition key) via a query, then delete with the correct PK
             var existing = await GetByIdAsync(id);
             if (existing == null) return;
@@ -76,6 +88,14 @@ namespace BlazorApp.Repositories.Implementations
                 throw new InvalidOperationException($"Partition key path '{_partitionKeyPath}' not found in document. Cannot delete item '{id}'.");
             }
             await _container.DeleteItemAsync<FormSubmission>(id, new PartitionKey(pkValue));
+        }
+
+        private async Task EnsurePartitionKeyPathAsync()
+        {
+            if (!string.IsNullOrWhiteSpace(_partitionKeyPath)) return;
+
+            var props = await _container.ReadContainerAsync();
+            _partitionKeyPath = props.Resource.PartitionKeyPath;
         }
 
         private string? GetPartitionKeyValue(object item)

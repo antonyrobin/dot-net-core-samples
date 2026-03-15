@@ -17,7 +17,6 @@ builder.Services.AddSingleton<IFormValidationService, FormValidationService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 // These two are better as Scoped (per-request)
 builder.Services.AddScoped<IFormSubmissionService, FormSubmissionService>();
-builder.Services.AddScoped<IFormSubmissionRepository, FormSubmissionCosmosRepository>();
 
 // === COSMOS DB REGISTRATION (updated) ===
 var cosmosConnectionString = builder.Configuration["Cosmos:ConnectionString"]
@@ -36,6 +35,23 @@ builder.Services.AddSingleton<CosmosClient>(sp =>
 builder.Services.AddSingleton<IFormSubmissionRepository, FormSubmissionCosmosRepository>();
 
 var app = builder.Build();
+
+// Warm-up Cosmos DB container read on startup so the first user request doesn't bear the SDK
+// connection / gateway / JIT cost. This blocks startup briefly but avoids a long delay on the
+// first page navigation that needs the repository.
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var cosmos = scope.ServiceProvider.GetRequiredService<CosmosClient>();
+        // database/container names are the same values used by the repository implementation
+        cosmos.GetDatabase("dynamicsdb").GetContainer("dynamics_submissions").ReadContainerAsync().GetAwaiter().GetResult();
+    }
+    catch
+    {
+        // Ignore warm-up failures here; real calls will surface errors as usual.
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
