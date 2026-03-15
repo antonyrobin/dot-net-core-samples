@@ -3,8 +3,10 @@
 }
 @page "/dynamics/dashboard"
 @using BlazorApp.Models
+@using BlazorApp.Services.Implementations
 @using BlazorApp.Services.Interfaces
 @inject IFormSubmissionService SubmissionService
+@inject IFileStorageService FileStorageService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 @attribute [StreamRendering]
@@ -60,7 +62,7 @@
                                 <td class="px-4 py-3">
                                     @if (sub.FileData.ContainsKey("profilePic"))
                                     {
-                                        <img src="/files/@sub.FileData["profilePic"]" class="w-12 h-12 rounded-2xl object-cover ring-2 ring-gray-200" />
+                                        <img src="@FileStorageService.GetBlobUrl(sub.FileData["profilePic"], "profilePic/thumbnail")" class="w-12 h-12 rounded-2xl object-cover ring-2 ring-gray-200" />
                                     }
                                     else
                                     {

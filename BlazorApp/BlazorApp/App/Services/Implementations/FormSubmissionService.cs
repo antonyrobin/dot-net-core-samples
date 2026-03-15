@@ -24,7 +24,7 @@ namespace BlazorApp.Services.Implementations
             {
                 if (kvp.Value != null && kvp.Value.Size > 0)
                 {
-                    string storedFileName = await _fileStorage.StoreAsync(kvp.Value);
+                    string storedFileName = await _fileStorage.StoreAsync(kvp.Value, kvp.Key);
                     if (!string.IsNullOrEmpty(storedFileName))
                     {
                         fileData[kvp.Key] = storedFileName;
@@ -58,7 +58,7 @@ namespace BlazorApp.Services.Implementations
             {
                 if (kvp.Value != null && kvp.Value.Size > 0)
                 {
-                    string storedFileName = await _fileStorage.StoreAsync(kvp.Value);
+                    string storedFileName = await _fileStorage.StoreAsync(kvp.Value, kvp.Key);
                     if (!string.IsNullOrEmpty(storedFileName))
                     {
                         existing.FileData[kvp.Key] = storedFileName;
