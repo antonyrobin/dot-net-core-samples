@@ -4,6 +4,7 @@ using BlazorApp.Repositories.Interfaces;
 using BlazorApp.Services.Implementations;
 using BlazorApp.Services.Interfaces;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Caching.Memory;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +13,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddRazorPages();
+builder.Services.AddMemoryCache();  // Add memory cache for reducing Cosmos hits
 builder.Services.AddSingleton<IFormDefinitionService, FormDefinitionService>();
 builder.Services.AddSingleton<IFormValidationService, FormValidationService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
@@ -32,20 +34,34 @@ if (string.IsNullOrWhiteSpace(cosmosConnectionString))
 builder.Services.AddSingleton<CosmosClient>(sp =>
     new CosmosClient(cosmosConnectionString));
 
-builder.Services.AddSingleton<IFormSubmissionRepository, FormSubmissionCosmosRepository>();
+// Register the base repository
+builder.Services.AddSingleton<IFormSubmissionRepository>(sp =>
+{
+    var cosmosClient = sp.GetRequiredService<CosmosClient>();
+    var baseRepository = new FormSubmissionCosmosRepository(cosmosClient);
+
+    // Wrap with caching decorator for better performance
+    var memoryCache = sp.GetRequiredService<IMemoryCache>();
+    return new CachedFormSubmissionRepository(baseRepository, memoryCache);
+});
 
 var app = builder.Build();
 
-// Warm-up Cosmos DB container read on startup so the first user request doesn't bear the SDK
-// connection / gateway / JIT cost. This blocks startup briefly but avoids a long delay on the
-// first page navigation that needs the repository.
+// Warm-up Cosmos DB SDK and repository initialization on startup so the first user request
+// doesn't bear the SDK connection / gateway / JIT cost. This blocks startup briefly but
+// avoids a long delay (5-10s) on the first page navigation that needs the repository.
 using (var scope = app.Services.CreateScope())
 {
     try
     {
         var cosmos = scope.ServiceProvider.GetRequiredService<CosmosClient>();
-        // database/container names are the same values used by the repository implementation
+        // Warm-up the SDK connection
         cosmos.GetDatabase("dynamicsdb").GetContainer("dynamics_submissions").ReadContainerAsync().GetAwaiter().GetResult();
+
+        // Also eagerly initialize the repository to populate the partition key path
+        // This ensures the first query doesn't pay the overhead
+        var repository = scope.ServiceProvider.GetRequiredService<IFormSubmissionRepository>();
+        _ = repository.GetPagedAsync(null, 1, null).GetAwaiter().GetResult();
     }
     catch
     {

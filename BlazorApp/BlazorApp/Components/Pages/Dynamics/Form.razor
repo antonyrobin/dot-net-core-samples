@@ -10,92 +10,111 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 
-<PageTitle>@(IsEdit ? "Edit Candidate" : "New Registration")</PageTitle>
+<PageTitle>@(IsEdit ? "Edit Candidate" : "New Candidate")</PageTitle>
 
 <div class="min-h-screen bg-gray-50 py-8">
     <div class="max-w-4xl mx-auto px-4">
         <div class="bg-white rounded-3xl shadow-2xl p-8">
-            <h1 class="text-3xl font-bold mb-8">@(IsEdit ? "Edit Candidate" : "New Registration")</h1>
+            <a href="/dynamics/dashboard" class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-4">
+                ← Back to Candidates
+            </a>
+            <h1 class="text-3xl font-bold mb-6 theme-header">@(IsEdit ? "Edit Candidate" : "New Candidate")</h1>
 
-            <form @onsubmit="HandleSubmit" enctype="multipart/form-data" class="space-y-8">
-                @if (IsEdit)
-                {
-                    <input type="hidden" name="Id" value="@Id" />
-                }
-
-                @foreach (var control in Controls)
-                {
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            @control.Label @if (control.Mandatory) {
-                            <span class="text-red-500">*</span>
-                        }
-                    </label>
-
-                    @switch (control.Type)
+                <form @onsubmit="HandleSubmit" enctype="multipart/form-data" class="space-y-6">
+                    @if (IsEdit)
                     {
-                        case "text":
-                        case "email":
-                        case "number":
-                        case "date":
-                        case "password":
-                        case "url":
-                        case "tel":
-                            <input type="@control.Type" value="@FormData.GetValueOrDefault(control.Name)"
-                                   @onchange="@(e => FormData[control.Name] = e.Value?.ToString() ?? "")"
-                                   class="w-full px-5 py-4 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-blue-500" />
-                            break;
+                        <input type="hidden" name="Id" value="@Id" />
+                    }
 
-                        case "image":
-                        case "file":
-                            <InputFile OnChange="@(e => HandleFileSelected(e, control.Name))"
-                                       class="block w-full text-sm text-gray-500 file:mr-4 file:py-4 file:px-6 file:rounded-2xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                            break;
-
-                        case "textarea":
-                            <textarea value="@FormData.GetValueOrDefault(control.Name)"
-                                      @onchange="@(e => FormData[control.Name] = e.Value?.ToString() ?? "")"
-                                      class="w-full px-5 py-4 border border-gray-300 rounded-2xl h-32"></textarea>
-                            break;
-
-                        case "richtext":
-                            <textarea @ref="richEditorRef" id="richEditor"
-                                      class="rich-editor w-full h-96 border border-gray-300 rounded-2xl"></textarea>
-                            break;
-
-                        case "select":
-                            <select value="@FormData.GetValueOrDefault(control.Name)"
-                                    @onchange="@(e => FormData[control.Name] = e.Value?.ToString() ?? "")"
-                                    class="w-full px-5 py-4 border border-gray-300 rounded-2xl">
-                                <option value="">Select...</option>
-                                @foreach (var opt in control.Options)
+                    @foreach (var control in Controls)
+                    {
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                @control.Label @if (control.Mandatory)
                                 {
-                                    <option value="@opt">@opt</option>
+                                    <span class="text-red-500">*</span>
                                 }
-                            </select>
-                            break;
+                            </label>
 
-                        case "radio":
-                        case "checkbox":
-                            <!-- Same modern radio/checkbox code as before -->
-                            <!-- (kept identical to previous working version) -->
-                            break;
+                            @switch (control.Type)
+                            {
+                                case "text":
+                                case "email":
+                                case "number":
+                                case "date":
+                                case "password":
+                                case "url":
+                                case "tel":
+                                    <input type="@control.Type" value="@FormData.GetValueOrDefault(control.Name)"
+                                    @onchange="@(e => FormData[control.Name] = e.Value?.ToString() ?? "")"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                                    break;
+
+                                case "image":
+                                case "file":
+                                    <div class="flex flex-col gap-2">
+                                        <InputFile OnChange="@(e => HandleFileSelected(e, control.Name))"
+                                        class="block w-full text-sm text-gray-500 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                                        @if (IsEdit && Submission?.FileData.ContainsKey(control.Name) == true)
+                                        {
+                                            <span class="text-sm text-gray-600">Existing: @Submission.FileData[control.Name]</span>
+                                        }
+                                    </div>
+                                    break;
+
+                                case "textarea":
+                                    <textarea value="@FormData.GetValueOrDefault(control.Name)"
+                                    @onchange="@(e => FormData[control.Name] = e.Value?.ToString() ?? "")"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg h-32"></textarea>
+                                    break;
+
+                                case "richtext":
+                                    <textarea @ref="richEditorRef" id="richEditor"
+                                    class="rich-editor w-full h-96 border border-gray-300 rounded-2xl"></textarea>
+                                    break;
+
+                                case "select":
+                                    <select value="@FormData.GetValueOrDefault(control.Name)"
+                                    @onchange="@(e => FormData[control.Name] = e.Value?.ToString() ?? "")"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                        <option value="">Select...</option>
+                                        @foreach (var opt in control.Options)
+                                        {
+                                            <option value="@opt">@opt</option>
+                                        }
+                                    </select>
+                                    break;
+
+                                case "radio":
+                                case "checkbox":
+                                    <!-- Same modern radio/checkbox code as before -->
+                                    <!-- (kept identical to previous working version) -->
+                                    break;
+                            }
+
+                            @if (Errors.ContainsKey(control.Name))
+                            {
+                                <p class="text-red-500 text-sm mt-1">@Errors[control.Name]</p>
+                            }
+                        </div>
                     }
 
-                    @if (Errors.ContainsKey(control.Name))
-                    {
-                        <p class="text-red-500 text-sm mt-1">@Errors[control.Name]</p>
-                    }
-                </div>
-            }
+                    <button type="submit"
+                    class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-2xl font-semibold text-lg shadow hover:shadow-md transition-all"
+                    disabled="@IsSaving">
+                        @if (IsSaving)
+                        {
+                            <span>Saving...</span>
+                        }
+                        else
+                        {
+                            <span>Submit</span>
+                        }
+                    </button>
+                </form>
 
-            <button type="submit"
-                    class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-5 rounded-3xl font-semibold text-lg shadow-xl hover:shadow-2xl transition-all">
-                Submit Application
-            </button>
-        </form>
+        </div>
     </div>
-</div>
 </div>
 
 @code {
@@ -108,6 +127,8 @@
     private FormSubmission? Submission;
     private Dictionary<string, string> Errors = new();
     private ElementReference richEditorRef;
+    private bool IsSaving = false;
+    private bool IsLoading = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -118,6 +139,7 @@
             if (Submission != null)
                 FormData = Submission.TextData.ToDictionary(k => k.Key, v => v.Value?.ToString() ?? "");
         }
+        IsLoading = true;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -141,10 +163,18 @@
 
         if (Errors.Any()) { StateHasChanged(); return; }
 
-        if (IsEdit)
-            await SubmissionService.UpdateAsync(Id!, FormData, SelectedFiles);
-        else
-            await SubmissionService.SaveAsync(FormData, SelectedFiles);
+        try
+        {
+            IsSaving = true;
+            if (IsEdit)
+                await SubmissionService.UpdateAsync(Id!, FormData, SelectedFiles);
+            else
+                await SubmissionService.SaveAsync(FormData, SelectedFiles);
+        }
+        finally
+        {
+            IsSaving = false;
+        }
 
         Navigation.NavigateTo("/dynamics/dashboard");
     }
